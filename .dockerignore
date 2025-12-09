@@ -1,0 +1,26 @@
+# Ignore the local virtual environment (Crucial!)
+.venv
+venv
+ENV
+
+# Ignore Rust build artifacts (We want to build fresh inside Docker)
+target/
+
+# Ignore Git metadata
+.git
+.gitignore
+
+
+# Ignore Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore IDE settings
+.vscode
+.idea
+
+# Ignore testing scripts (unless you want them in the VM)
+test_run.py
+readme.Md
