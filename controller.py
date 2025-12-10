@@ -55,7 +55,7 @@ def run_strategy(task_id, user_strategy, log_callback, dependency_image_path=Non
         st = time.time()
         try:
             # Basic Config
-            session.put(f"{base_url}/machine-config", json={"vcpu_count": 2, "mem_size_mib": 1024, "smt": False}).raise_for_status()
+            session.put(f"{base_url}/machine-config", json={"vcpu_count": 1, "mem_size_mib": 256, "smt": False}).raise_for_status()
             session.put(f"{base_url}/boot-source", json={"kernel_image_path": KERNEL_PATH, "boot_args": "console=ttyS0 reboot=k panic=1 pci=off init=/sbin/myinit"}).raise_for_status()
             session.put(f"{base_url}/drives/rootfs", json={"drive_id": "rootfs", "path_on_host": ROOTFS_PATH, "is_root_device": True, "is_read_only": False}).raise_for_status()
             if dependency_image_path:
