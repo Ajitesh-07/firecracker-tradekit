@@ -45,7 +45,7 @@ def process_job(ch, method, properties, body):
 
         dependency_url = create_dependency_drive(requirements, log_callback)
 
-        full_result = run_strategy(strategy_code, log_callback, dependency_url)
+        full_result = run_strategy(task_id, strategy_code, log_callback, dependency_url)
 
         if full_result.get('status') == 'error':
             error_payload = {

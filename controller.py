@@ -6,11 +6,8 @@ import json
 import struct
 import requests_unixsocket
 
-API_SOCKET = "/tmp/firecracker.socket"
-VSOCK_UDS_PATH = "/tmp/v.sock"
 KERNEL_PATH = "./vmlinux.bin"
 ROOTFS_PATH = "./rootfs.ext4"
-LOG_FILE = "vm.log"
 AGENT_PORT = 5000
 
 def recvall(sock, n):
@@ -22,16 +19,21 @@ def recvall(sock, n):
         data += packet
     return data
 
-def run_strategy(user_strategy, log_callback, dependency_image_path=None):
-    # 1. Cleanup old sockets
-    for path in [API_SOCKET, VSOCK_UDS_PATH]:
+def run_strategy(task_id, user_strategy, log_callback, dependency_image_path=None):
+
+    api_socket = f"/tmp/firecracker_{task_id}.socket"
+    vsock_path = f"/tmp/v_{task_id}.sock"
+    log_file = f"vm_{task_id}.log"
+
+    # 1. Cleanup old sockets (specific to this task only)
+    for path in [api_socket, vsock_path]:
         if os.path.exists(path): os.remove(path)
 
-    print(f"[Host] Starting Firecracker process...")
-    log_fp = open(LOG_FILE, "w")
+    print(f"[Host] Starting Firecracker for Task {task_id}...")
+    log_fp = open(log_file, "w")
     
     fc_proc = subprocess.Popen(
-        ["./firecracker", "--api-sock", API_SOCKET],
+        ["./firecracker", "--api-sock", api_socket],
         stdout=log_fp,
         stderr=log_fp
     )
@@ -40,13 +42,13 @@ def run_strategy(user_strategy, log_callback, dependency_image_path=None):
 
     try:
         # 2. Wait for Firecracker API Socket
-        while not os.path.exists(API_SOCKET):
+        while not os.path.exists(api_socket):
             time.sleep(0.1)
             if fc_proc.poll() is not None:
                 return {"status": "error", "type": "BootError", "message": "Firecracker exited immediately. Check vm.log."}
 
         session = requests_unixsocket.Session()
-        base_url = f"http+unix://{API_SOCKET.replace('/', '%2F')}"
+        base_url = f"http+unix://{api_socket.replace('/', '%2F')}"
 
         # 3. Configure VM via API
         print("[Host] Configuring MicroVM...")
@@ -66,7 +68,7 @@ def run_strategy(user_strategy, log_callback, dependency_image_path=None):
                 }).raise_for_status()
 
             # VSOCK Config (Host UDS Path)
-            session.put(f"{base_url}/vsock", json={"guest_cid": 3, "uds_path": VSOCK_UDS_PATH}).raise_for_status()
+            session.put(f"{base_url}/vsock", json={"guest_cid": 3, "uds_path": vsock_path}).raise_for_status()
             
             # Boot
             session.put(f"{base_url}/actions", json={"action_type": "InstanceStart"}).raise_for_status()
@@ -80,7 +82,7 @@ def run_strategy(user_strategy, log_callback, dependency_image_path=None):
         while not connected:
             try:
                 client_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                client_sock.connect(VSOCK_UDS_PATH)
+                client_sock.connect(vsock_path)
                 
                 # Firecracker UDS Handshake: "CONNECT <PORT>\n"
                 client_sock.sendall(f"CONNECT {AGENT_PORT}\n".encode())
@@ -148,8 +150,9 @@ def run_strategy(user_strategy, log_callback, dependency_image_path=None):
         if not log_fp.closed: log_fp.close()
         
         # Remove sockets
-        if os.path.exists(API_SOCKET): os.remove(API_SOCKET)
-        if os.path.exists(VSOCK_UDS_PATH): os.remove(VSOCK_UDS_PATH)
+        if os.path.exists(api_socket): os.remove(api_socket)
+        if os.path.exists(vsock_path): os.remove(vsock_path)
+        if os.path.exists(log_file): os.remove(log_file)
 
 if __name__ == "__main__":
     bad_strategy = """
