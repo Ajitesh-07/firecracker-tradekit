@@ -51,7 +51,7 @@ def process_job(ch, method, properties, body):
             error_payload = {
                 "task_id": task_id,
                 "status": "error",
-                "message": full_result.get('error', 'Unknown Error'),
+                "message": full_result.get('message', 'Unknown Error'),
                 "traceback": full_result.get('traceback')
             }
             redis_client.publish(PUB_SUB_CHANNEL, json.dumps(error_payload))
