@@ -25,6 +25,8 @@ def run_strategy(task_id, user_strategy, log_callback, dependency_image_path=Non
     vsock_path = f"/tmp/v_{task_id}.sock"
     log_file = f"vm_{task_id}.log"
 
+    unique_cid = 3 + (int(task_id[-8:], 16) % 1000000)
+
     # 1. Cleanup old sockets (specific to this task only)
     for path in [api_socket, vsock_path]:
         if os.path.exists(path): os.remove(path)
@@ -57,7 +59,7 @@ def run_strategy(task_id, user_strategy, log_callback, dependency_image_path=Non
             # Basic Config
             session.put(f"{base_url}/machine-config", json={"vcpu_count": 1, "mem_size_mib": 256, "smt": False}).raise_for_status()
             session.put(f"{base_url}/boot-source", json={"kernel_image_path": KERNEL_PATH, "boot_args": "console=ttyS0 reboot=k panic=1 pci=off init=/sbin/myinit"}).raise_for_status()
-            session.put(f"{base_url}/drives/rootfs", json={"drive_id": "rootfs", "path_on_host": ROOTFS_PATH, "is_root_device": True, "is_read_only": False}).raise_for_status()
+            session.put(f"{base_url}/drives/rootfs", json={"drive_id": "rootfs", "path_on_host": ROOTFS_PATH, "is_root_device": True, "is_read_only": True}).raise_for_status()
             if dependency_image_path:
                 print(f"[Host] Attaching Dependency Drive: {dependency_image_path}")
                 session.put(f"{base_url}/drives/deps", json={
@@ -68,7 +70,7 @@ def run_strategy(task_id, user_strategy, log_callback, dependency_image_path=Non
                 }).raise_for_status()
 
             # VSOCK Config (Host UDS Path)
-            session.put(f"{base_url}/vsock", json={"guest_cid": 3, "uds_path": vsock_path}).raise_for_status()
+            session.put(f"{base_url}/vsock", json={"guest_cid": unique_cid, "uds_path": vsock_path}).raise_for_status()
             
             # Boot
             session.put(f"{base_url}/actions", json={"action_type": "InstanceStart"}).raise_for_status()
